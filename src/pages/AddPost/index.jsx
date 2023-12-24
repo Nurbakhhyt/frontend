@@ -6,11 +6,13 @@ import SimpleMDE from 'react-simplemde-editor';
 import { useSelector } from 'react-redux';
 import { selectISAuth } from '../../redux/slices/auth';
 import 'easymde/dist/easymde.min.css';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, useParams } from 'react-router-dom';
 import styles from './AddPost.module.scss';
 import axios from '../../axios';
-
+import { Link } from 'react-router-dom';
+import { set } from 'react-hook-form';
 export const AddPost = () => {
+  const {id} = useParams();
   const navigate = useNavigate();
   const isAuth = useSelector(selectISAuth);
   const [ isLoading , setLoading ] = React.useState(false);
@@ -19,6 +21,7 @@ export const AddPost = () => {
   const [tags, setTags] = React.useState('');
   const [imageUrl, setimageUrl] = React.useState('');
   const inputFileRef = React.useRef(null);
+  const isEditing = Boolean(id);
 
   const handleChangeFile = async (event) => {
     try {
@@ -27,9 +30,10 @@ export const AddPost = () => {
       formData.append('image', file);
       const { data } = await axios.post('/upload', formData);
       setimageUrl(data.url);
-    } catch(err){
-      console.warn(err);
-      alert('Warning in get file');
+    } 
+    catch(err){
+        console.warn(err);
+        alert('Warning in get file');
     }
   };
 
@@ -47,20 +51,34 @@ export const AddPost = () => {
       const fields = {
         title,
         imageUrl,
-        tags: tags.split(','),
+        tags,
         description,
       }
-      const { data } = await axios.post('/posts', fields);
+      const { data } = isEditing ? await axios.patch(`/posts/${id}`, fields) : await axios.post('/posts', fields);
 
-      const id = data._id;
+      const _id = isEditing ? id : data._id;
 
-      navigate(`/posts/${id}`)
+      navigate(`/posts/${_id}`)
 
     } catch (err) {
-      console.warn(err)
-      alert('Warning when uou want to create  file');
+        console.warn(err)
+        alert('Warning when uou want to create  file');
     }
   }
+
+  React.useEffect(() => {
+    if(id){
+      axios.get(`/posts/${id}`).then(({data}) => {
+        setTitle(data.title);
+        setTags(data.tags.join(','));
+        setDescription(data.description);
+        setimageUrl(data.imageUrl);
+      }).catch (err => {
+        console.warn(err)
+        alert('Warning when get  file');
+    });
+    }    
+  }, []);
 
   const options = React.useMemo(
     () => ({
@@ -117,12 +135,12 @@ export const AddPost = () => {
 
       <SimpleMDE className={styles.editor} value={description} onChange={onChange} options={options} />
       <div className={styles.buttons}>
-        <Button onClick={onSubmit} size="large" variant="contained">
-          Опубликовать
+        <Button onClick={onSubmit} type='submit' size="large" variant="contained">
+          {isEditing ? 'Save' : 'Опубликовать'}
         </Button>
-        <a href="/">
+        <Link to="/">
           <Button size="large">Отмена</Button>
-        </a>
+        </Link>
       </div>
     </Paper>
   );
